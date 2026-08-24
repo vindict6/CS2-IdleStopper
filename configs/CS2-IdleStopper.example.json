@@ -45,6 +45,10 @@
   "afk_command_enabled": true,
   "afk_command_seconds": 180,
 
+  // Remember money and guns (skins included) when someone gets moved or kicked, and hand
+  // it all back when they rejoin or reconnect. Only lasts for the current match.
+  "keep_loadout": true,
+
   // Skip anyone holding one of the flags below.
   "admin_immune": true,
   "admin_roles": [

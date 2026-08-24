@@ -16,7 +16,7 @@ namespace IdleStopper;
 public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
 {
     public override string ModuleName => "CS2-IdleStopper";
-    public override string ModuleVersion => "1.7.0";
+    public override string ModuleVersion => "1.8.0";
     public override string ModuleAuthor => "BONE";
     public override string ModuleDescription => "Warns, shakes, then moves or kicks players who stop pressing keys.";
 
@@ -43,6 +43,8 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
     private readonly HashSet<int> _active = new();
     // Last aim angles per slot, so mouse movement counts as being there.
     private readonly Dictionary<int, (float Pitch, float Yaw)> _aim = new();
+    // SteamID -> what they had when we took them out. Dropped when the match ends.
+    private readonly Dictionary<ulong, Loadout> _saved = new();
     private Timer? _tick;
     private CCSGameRules? _rules;
 
@@ -62,9 +64,14 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
             _specRounds.Remove(slot); _watch.Remove(slot); _active.Remove(slot); _aim.Remove(slot);
         });
         RegisterEventHandler<EventRoundStart>((_, _) => { OnRoundStart(); return HookResult.Continue; });
+        RegisterEventHandler<EventCsWinPanelMatch>((_, _) => { _saved.Clear(); return HookResult.Continue; });
+
+        // Chat commands normally get echoed to everyone first. Swallow ours instead.
+        AddCommandListener("say", OnSay, HookMode.Pre);
+        AddCommandListener("say_team", OnSay, HookMode.Pre);
         RegisterListener<Listeners.OnTick>(OnTick);
         RegisterListener<Listeners.OnClientPutInServer>(slot => _idle[slot] = 0);
-        RegisterEventHandler<EventPlayerSpawn>((e, _) => { ClearWarning(e.Userid); return HookResult.Continue; });
+        RegisterEventHandler<EventPlayerSpawn>((e, _) => { ClearWarning(e.Userid); RestoreLater(e.Userid); return HookResult.Continue; });
         RegisterEventHandler<EventPlayerTeam>((e, _) => { ClearWarning(e.Userid); return HookResult.Continue; });
 
         // Hot reload keeps whoever is already on the server, so start them fresh.
@@ -90,6 +97,23 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         _watch.Clear();
         _active.Clear();
         _aim.Clear();
+        _saved.Clear();
+    }
+
+    private HookResult OnSay(CCSPlayerController? player, CommandInfo info)
+    {
+        if (player is null || !player.IsValid)
+            return HookResult.Continue;
+
+        var said = info.GetArg(1).Trim().Trim('"');
+        if (said.Length > 1 && (said[0] == '!' || said[0] == '/'))
+            said = said[1..];
+
+        if (!said.Equals("afk", StringComparison.OrdinalIgnoreCase))
+            return HookResult.Continue;
+
+        DoAfk(player);
+        return HookResult.Handled;
     }
 
     private void OnRoundStart()
@@ -128,6 +152,11 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         if (player is null || !player.IsValid)
             return;
 
+        DoAfk(player);
+    }
+
+    private void DoAfk(CCSPlayerController player)
+    {
         if (!Config.AfkCommandEnabled)
         {
             player.PrintToChat($" {ChatColors.Purple}[IdleStopper] The !afk command is disabled on this server.");
@@ -136,7 +165,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
 
         _afk[player.Slot] = Config.AfkCommandSeconds;
         Reset(player.Slot);
-        player.PrintToChat($" {ChatColors.Purple}[IdleStopper] Idle checks paused for you for {Config.AfkCommandSeconds} seconds.");
+        player.PrintToChat($" {ChatColors.Purple}[IdleStopper] Idle checks paused for you for {Pretty(Config.AfkCommandSeconds)}.");
         NotifyAdmins($"{player.PlayerName} used !afk ({Config.AfkCommandSeconds}s).");
     }
 
@@ -303,6 +332,11 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
     private void Punish(CCSPlayerController player)
     {
         var name = player.PlayerName;
+
+        // Grab this before the pawn goes away.
+        if (Config.KeepLoadout && Config.ActionType != 0)
+            Save(player);
+
         switch (Config.ActionType)
         {
             case 1:
@@ -318,6 +352,120 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
                 NotifyAdmins($"{name} was kicked for being idle.");
                 player.Disconnect(NetworkDisconnectionReason.NETWORK_DISCONNECT_KICKED_IDLE);
                 break;
+        }
+    }
+
+    private static ulong KeyOf(CCSPlayerController player)
+    {
+        return player.AuthorizedSteamID?.SteamId64 ?? player.SteamID;
+    }
+
+    private void Save(CCSPlayerController player)
+    {
+        var key = KeyOf(player);
+        if (key == 0)
+            return;
+
+        var money = player.InGameMoneyServices?.Account ?? 0;
+        var guns = new List<Gun>();
+
+        var weapons = player.PlayerPawn.Value?.WeaponServices?.MyWeapons;
+        if (weapons is not null)
+        {
+            foreach (var handle in weapons)
+            {
+                var weapon = handle.Value;
+                if (weapon is null || !weapon.IsValid)
+                    continue;
+
+                var name = weapon.DesignerName;
+                if (string.IsNullOrEmpty(name))
+                    continue;
+
+                guns.Add(new Gun(
+                    name,
+                    weapon.AttributeManager?.Item?.ItemDefinitionIndex ?? 0,
+                    weapon.FallbackPaintKit,
+                    weapon.FallbackSeed,
+                    weapon.FallbackWear,
+                    weapon.FallbackStatTrak));
+            }
+        }
+
+        _saved[key] = new Loadout(money, guns);
+    }
+
+    // Spawn is too early to hand out weapons, so wait a beat and re-resolve the player.
+    private void RestoreLater(CCSPlayerController? player)
+    {
+        if (!Config.KeepLoadout || player is null || !player.IsValid || _saved.Count == 0)
+            return;
+
+        var key = KeyOf(player);
+        if (key == 0 || !_saved.ContainsKey(key))
+            return;
+
+        var slot = player.Slot;
+        AddTimer(0.3f, () =>
+        {
+            var target = Utilities.GetPlayerFromSlot(slot);
+            if (target is null || !target.IsValid || KeyOf(target) != key)
+                return;
+
+            Restore(target, key);
+        });
+    }
+
+    private void Restore(CCSPlayerController player, ulong key)
+    {
+        if (!_saved.TryGetValue(key, out var saved))
+            return;
+
+        // One shot. If anything below fails they just keep their spawn kit.
+        _saved.Remove(key);
+
+        if (!player.PawnIsAlive)
+            return;
+
+        var money = player.InGameMoneyServices;
+        if (money is not null)
+        {
+            money.Account = saved.Money;
+            Utilities.SetStateChanged(player, "CCSPlayerController", "m_pInGameMoneyServices");
+        }
+
+        if (saved.Guns.Count == 0)
+            return;
+
+        player.RemoveWeapons();
+
+        foreach (var gun in saved.Guns)
+        {
+            var weapon = player.GiveNamedItem<CBasePlayerWeapon>(gun.Name);
+            if (weapon is null || !weapon.IsValid)
+                continue;
+
+            if (gun.PaintKit == 0 && gun.StatTrak == 0)
+                continue;
+
+            // Put the skin back on the fresh weapon.
+            weapon.FallbackPaintKit = gun.PaintKit;
+            weapon.FallbackSeed = gun.Seed;
+            weapon.FallbackWear = gun.Wear;
+            weapon.FallbackStatTrak = gun.StatTrak;
+
+            var item = weapon.AttributeManager?.Item;
+            if (item is not null)
+            {
+                item.ItemDefinitionIndex = gun.DefIndex;
+                item.Initialized = true;
+                Utilities.SetStateChanged(weapon, "CEconEntity", "m_AttributeManager");
+            }
+
+            Utilities.SetStateChanged(weapon, "CEconEntity", "m_nFallbackPaintKit");
+            Utilities.SetStateChanged(weapon, "CEconEntity", "m_nFallbackSeed");
+            Utilities.SetStateChanged(weapon, "CEconEntity", "m_flFallbackWear");
+            Utilities.SetStateChanged(weapon, "CEconEntity", "m_nFallbackStatTrak");
         }
     }
 
@@ -387,6 +535,10 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         if (secs.Length == 0) return mins;
         return $"{mins} & {secs}";
     }
+
+    private sealed record Gun(string Name, ushort DefIndex, int PaintKit, int Seed, float Wear, int StatTrak);
+
+    private sealed record Loadout(int Money, List<Gun> Guns);
 
     private string Outcome() => Config.ActionType switch
     {

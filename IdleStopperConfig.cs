@@ -45,6 +45,9 @@ public sealed class IdleStopperConfig : BasePluginConfig
     [JsonPropertyName("afk_command_seconds")]
     public int AfkCommandSeconds { get; set; } = 180;
 
+    [JsonPropertyName("keep_loadout")]
+    public bool KeepLoadout { get; set; } = true;
+
     [JsonPropertyName("admin_immune")]
     public bool AdminImmune { get; set; } = true;
 
