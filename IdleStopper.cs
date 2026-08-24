@@ -17,7 +17,7 @@ namespace IdleStopper;
 public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
 {
     public override string ModuleName => "CS2-IdleStopper";
-    public override string ModuleVersion => "1.9.1";
+    public override string ModuleVersion => "1.10.0";
     public override string ModuleAuthor => "BONE";
     public override string ModuleDescription => "Warns, shakes, then moves or kicks players who stop pressing keys.";
 
@@ -59,6 +59,8 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
             _specRounds.Remove(slot); _watch.Remove(slot); _active.Remove(slot);
         });
         RegisterEventHandler<EventRoundStart>((_, _) => { OnRoundStart(); return HookResult.Continue; });
+        RegisterEventHandler<EventRoundEnd>((_, _) => { ResetIntervals(); return HookResult.Continue; });
+        RegisterEventHandler<EventPlayerDeath>((e, _) => { ClearWarning(e.Userid); return HookResult.Continue; });
         RegisterEventHandler<EventCsWinPanelMatch>((_, _) => { _saved.Clear(); return HookResult.Continue; });
 
         // Chat commands normally get echoed to everyone first. Swallow ours instead.
@@ -110,9 +112,19 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         return HookResult.Handled;
     }
 
+    // Idle time never carries over. Every round is a clean start for everyone.
+    private void ResetIntervals()
+    {
+        _idle.Clear();
+        _center.Clear();
+        _active.Clear();
+        _watch.Clear();
+    }
+
     private void OnRoundStart()
     {
         _movedThisRound.Clear();
+        ResetIntervals();
 
         if (Config.SpectatorKickRounds <= 0)
         {
@@ -189,10 +201,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
     {
         if (InWarmup())
         {
-            if (_idle.Count > 0) _idle.Clear();
-            _center.Clear();
-            _watch.Clear();
-            _active.Clear();
+            ResetIntervals();
             return;
         }
 

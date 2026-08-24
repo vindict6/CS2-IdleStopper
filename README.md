@@ -8,6 +8,7 @@ A small CounterStrikeSharp plugin that deals with people who go AFK. Nothing fan
 - At `notify_seconds` (default 45) it plays a popup sound, shakes their screen, and puts a countdown in the middle of their screen.
 - At `action_seconds` (default 75) it either moves them to spectator, kicks them, or does nothing, depending on `action_type`.
 - Warmup is skipped completely. Spectators, dead players, and bots are never counted.
+- Dying or the round ending wipes the timer and warning on the spot. Nothing carries over between rounds.
 
 The countdown is the gap between the two values, so with the defaults you get a 30 second warning. After they're moved, they get kicked if they sit in spectator for 3 rounds.
 
