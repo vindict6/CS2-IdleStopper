@@ -48,6 +48,7 @@
   // Remember money and guns (skins included) when someone gets moved or kicked, and hand
   // it all back when they rejoin or reconnect. Current match only, and only if they come
   // back on the same team. Join the other side and you spawn like the game normally would.
+  // Skins need FollowCS2ServerGuidelines set to false in CounterStrikeSharp's core.json.
   "keep_loadout": true,
 
   // Skip anyone holding one of the flags below.

@@ -46,7 +46,7 @@ The zip ships a commented `CS2-IdleStopper.example.json`. CounterStrikeSharp cop
 - `center_message`: `true` shows the live countdown in the middle of the screen. `false` sends a single purple chat message at notify time instead, telling them what happens and how many seconds they have. It does not repeat. The file has short help lines next to each key too. Bad values get clamped, and `action_seconds` is always forced above `notify_seconds`.
 
 - `afk_command_enabled` / `afk_command_seconds`: players can type `!afk` to pause checks on themselves. When the time is up their idle counter starts over from zero.
-- `keep_loadout`: saves money and guns (with skins) when the plugin moves or kicks someone, and gives it back when they rejoin or reconnect. Same match only, and only if they come back on the same team. Switch sides and you spawn like normal. It never says anything in chat.
+- `keep_loadout`: saves money and guns (with skins) when the plugin moves or kicks someone, and gives it back when they rejoin or reconnect. Same match only, and only if they come back on the same team. Switch sides and you spawn like normal. It never says anything in chat. Skins only come back if `FollowCS2ServerGuidelines` is `false` in CounterStrikeSharp's `core.json`, since CS# blocks skin fields otherwise. Guns and money work regardless.
 - `admin_immune` / `admin_roles`: anyone with one of these CounterStrikeSharp flags is never counted.
 - `notify_admins`: those same admins get a chat line when someone hits the warning, gets moved or kicked, or uses `!afk`. Only the start of a warning, not every second.
 - `announce_moves`: tell the whole server when someone is moved to spectator.

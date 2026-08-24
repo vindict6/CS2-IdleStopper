@@ -17,7 +17,7 @@ namespace IdleStopper;
 public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
 {
     public override string ModuleName => "CS2-IdleStopper";
-    public override string ModuleVersion => "1.9.0";
+    public override string ModuleVersion => "1.9.1";
     public override string ModuleAuthor => "BONE";
     public override string ModuleDescription => "Warns, shakes, then moves or kicks players who stop pressing keys.";
 
@@ -354,13 +354,22 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
                     if (string.IsNullOrEmpty(name) || name == "weapon_c4")
                         continue;
 
-                    guns.Add(new Gun(
-                        name,
-                        weapon.AttributeManager?.Item?.ItemDefinitionIndex ?? 0,
-                        weapon.FallbackPaintKit,
-                        weapon.FallbackSeed,
-                        weapon.FallbackWear,
-                        weapon.FallbackStatTrak));
+                    // Skin fields are off limits while CS# is following Valve's server guidelines.
+                    // Save the gun either way; the skin is a bonus.
+                    var gun = new Gun(name, 0, 0, 0, 0f, 0);
+                    if (!CoreConfig.FollowCS2ServerGuidelines)
+                    {
+                        gun = gun with
+                        {
+                            DefIndex = weapon.AttributeManager?.Item?.ItemDefinitionIndex ?? 0,
+                            PaintKit = weapon.FallbackPaintKit,
+                            Seed = weapon.FallbackSeed,
+                            Wear = weapon.FallbackWear,
+                            StatTrak = weapon.FallbackStatTrak,
+                        };
+                    }
+
+                    guns.Add(gun);
                 }
                 catch (Exception ex)
                 {
@@ -428,7 +437,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
     private void Give(CCSPlayerController player, Gun gun)
     {
         var weapon = player.GiveNamedItem<CBasePlayerWeapon>(gun.Name);
-        if (weapon is null || !weapon.IsValid || (gun.PaintKit == 0 && gun.StatTrak == 0))
+        if (weapon is null || !weapon.IsValid || CoreConfig.FollowCS2ServerGuidelines || (gun.PaintKit == 0 && gun.StatTrak == 0))
             return;
 
         // Put the skin back on the fresh weapon.
