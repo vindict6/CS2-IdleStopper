@@ -16,8 +16,6 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
     public override string ModuleAuthor => "BONE";
     public override string ModuleDescription => "Warns, slaps, then moves or kicks players who stop pressing keys.";
 
-    private const string WarnSound = "play ui/panorama/popup_reveal_01";
-
     public IdleStopperConfig Config { get; set; } = new();
 
     // Slot -> seconds without input. Everything runs on the game thread from one timer,
@@ -137,6 +135,13 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         vel.Z += _random.Next(200, 300);
         pawn.Teleport(null, null, vel);
     }
+
+    private string Outcome() => Config.ActionType switch
+    {
+        1 => "moved to spectator",
+        2 => "kicked",
+        _ => "warned again"
+    };
 
     private bool InWarmup()
     {

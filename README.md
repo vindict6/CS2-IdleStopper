@@ -19,11 +19,18 @@ Generated on first load at `addons/counterstrikesharp/configs/plugins/CS2-IdleSt
 {
   "notify_seconds": 30,
   "action_seconds": 60,
-  "action_type": 1
+  "action_type": 1,
+  "sound_enabled": true,
+  "sound": "ui/panorama/popup_reveal_01",
+  "slap_enabled": true,
+  "center_message": true
 }
 ```
 
-`action_type`: `0` warning only (timer just restarts), `1` move to spectator, `2` kick. The file has short help lines next to each key too. Bad values get clamped, and `action_seconds` is always forced above `notify_seconds`.
+- `action_type`: `0` warning only (timer just restarts), `1` move to spectator, `2` kick.
+- `sound`: any client-side sound path, played once when the warning starts. Empty string or `sound_enabled: false` turns it off.
+- `slap_enabled`: the 0 damage shove every two seconds during the warning.
+- `center_message`: `true` shows the live countdown in the middle of the screen. `false` sends a single purple chat message at notify time instead, telling them what happens and how many seconds they have. It does not repeat. The file has short help lines next to each key too. Bad values get clamped, and `action_seconds` is always forced above `notify_seconds`.
 
 ## Install
 

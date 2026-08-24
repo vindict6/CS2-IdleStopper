@@ -26,10 +26,33 @@ public sealed class IdleStopperConfig : BasePluginConfig
     [JsonPropertyName("action_type")]
     public int ActionType { get; set; } = 1;
 
+    [JsonPropertyName("_help_sound")]
+    public string HelpSound { get; set; } = "Play a sound when the warning starts. sound is any client-side sound path.";
+
+    [JsonPropertyName("sound_enabled")]
+    public bool SoundEnabled { get; set; } = true;
+
+    [JsonPropertyName("sound")]
+    public string Sound { get; set; } = "ui/panorama/popup_reveal_01";
+
+    [JsonPropertyName("_help_slap")]
+    public string HelpSlap { get; set; } = "Shove the player (no damage) every two seconds while they are warned.";
+
+    [JsonPropertyName("slap_enabled")]
+    public bool SlapEnabled { get; set; } = true;
+
+    [JsonPropertyName("_help_center_message")]
+    public string HelpCenter { get; set; } = "true = countdown in the middle of the screen. false = one purple chat message at notify time instead.";
+
+    [JsonPropertyName("center_message")]
+    public bool CenterMessage { get; set; } = true;
+
     public void Sanitize()
     {
         NotifySeconds = Math.Max(1, NotifySeconds);
         ActionSeconds = Math.Max(NotifySeconds + 1, ActionSeconds);
         ActionType = Math.Clamp(ActionType, 0, 2);
+        Sound = (Sound ?? string.Empty).Trim();
+        if (Sound.Length == 0) SoundEnabled = false;
     }
 }
