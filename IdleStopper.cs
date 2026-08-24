@@ -4,6 +4,7 @@ using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
+using CounterStrikeSharp.API.Modules.Extensions;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.UserMessages;
 using CounterStrikeSharp.API.Modules.Utils;
@@ -17,7 +18,7 @@ namespace IdleStopper;
 public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
 {
     public override string ModuleName => "CS2-IdleStopper";
-    public override string ModuleVersion => "1.10.0";
+    public override string ModuleVersion => "1.11.0";
     public override string ModuleAuthor => "BONE";
     public override string ModuleDescription => "Warns, shakes, then moves or kicks players who stop pressing keys.";
 
@@ -51,7 +52,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
 
     public override void Load(bool hotReload)
     {
-        RegisterListener<Listeners.OnMapStart>(_ => ClearAll());
+        RegisterListener<Listeners.OnMapStart>(_ => { ClearAll(); ReloadConfig(); });
         RegisterListener<Listeners.OnMapEnd>(ClearAll);
         RegisterListener<Listeners.OnClientDisconnect>(slot =>
         {
@@ -81,6 +82,20 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         _tick?.Kill();
         _tick = null;
         ClearAll();
+    }
+
+    // Pick up edits to the json without a restart. Bad file = keep what we had.
+    private void ReloadConfig()
+    {
+        try
+        {
+            Config.Reload();
+            Config.Sanitize();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Config reload failed, keeping the current settings.");
+        }
     }
 
     private void ClearAll()

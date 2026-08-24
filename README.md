@@ -14,7 +14,7 @@ The countdown is the gap between the two values, so with the defaults you get a 
 
 ## Config
 
-The zip ships a commented `CS2-IdleStopper.example.json`. CounterStrikeSharp copies it to `CS2-IdleStopper.json` the first time the plugin loads, comments and all, so you can read what each setting does right there in the file. Delete the json and restart to get a fresh copy.
+The zip ships a commented `CS2-IdleStopper.example.json`. CounterStrikeSharp copies it to `CS2-IdleStopper.json` the first time the plugin loads, comments and all, so you can read what each setting does right there in the file. Delete the json and restart to get a fresh copy. Edits are picked up on the next map change, no restart needed.
 
 ```json
 {
