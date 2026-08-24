@@ -48,13 +48,13 @@ public sealed class IdleStopperConfig : BasePluginConfig
     public string Sound { get; set; } = "ui/panorama/popup_reveal_01";
 
     [JsonPropertyName("_help_sound_interval")]
-    public string HelpSoundInterval { get; set; } = "Seconds between repeats of the sound during the warning. 0 = play it once only.";
+    public string HelpSoundInterval { get; set; } = "Seconds between repeats of the sound and shake during the warning. 0 = once only.";
 
     [JsonPropertyName("sound_interval_seconds")]
     public int SoundIntervalSeconds { get; set; } = 5;
 
     [JsonPropertyName("_help_shake")]
-    public string HelpShake { get; set; } = "Shake the player's screen every two seconds while they are warned. No damage, no movement.";
+    public string HelpShake { get; set; } = "Shake the player's screen for a second whenever the sound plays (same interval). No damage, no movement.";
 
     [JsonPropertyName("shake_enabled")]
     public bool ShakeEnabled { get; set; } = true;

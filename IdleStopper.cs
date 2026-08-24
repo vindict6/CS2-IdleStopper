@@ -16,7 +16,7 @@ namespace IdleStopper;
 public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
 {
     public override string ModuleName => "CS2-IdleStopper";
-    public override string ModuleVersion => "1.5.0";
+    public override string ModuleVersion => "1.5.1";
     public override string ModuleAuthor => "BONE";
     public override string ModuleDescription => "Warns, shakes, then moves or kicks players who stop pressing keys.";
 
@@ -212,8 +212,14 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
 
             var sinceNotify = idle - Config.NotifySeconds;
 
-            if (Config.SoundEnabled && (sinceNotify == 0 || (Config.SoundIntervalSeconds > 0 && sinceNotify % Config.SoundIntervalSeconds == 0)))
+            // Sound and shake share the same beat: once at notify, then every sound_interval_seconds.
+            var onBeat = sinceNotify == 0 || (Config.SoundIntervalSeconds > 0 && sinceNotify % Config.SoundIntervalSeconds == 0);
+
+            if (onBeat && Config.SoundEnabled)
                 player.ExecuteClientCommand("play " + Config.Sound);
+
+            if (onBeat && Config.ShakeEnabled)
+                Shake(player);
 
             if (sinceNotify == 0)
             {
@@ -223,9 +229,6 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
 
                 NotifyAdmins($"{player.PlayerName} is idle, {Outcome()} in {left}s.");
             }
-
-            if (Config.ShakeEnabled && sinceNotify % 2 == 0)
-                Shake(player);
 
             if (Config.CenterMessage)
                 _center[slot] =
@@ -287,9 +290,9 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
     private static void Shake(CCSPlayerController player)
     {
         var msg = UserMessage.FromPartialName("Shake");
-        msg.SetUInt("command", 0);
-        msg.SetFloat("local_amplitude", 8f);
-        msg.SetFloat("frequency", 40f);
+        msg.SetUInt("command", 0); // SHAKE_START
+        msg.SetFloat("amplitude", 20f);
+        msg.SetFloat("frequency", 60f);
         msg.SetFloat("duration", 1f);
         msg.Recipients.Add(player);
         msg.Send();
