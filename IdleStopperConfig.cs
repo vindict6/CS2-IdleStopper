@@ -53,6 +53,33 @@ public sealed class IdleStopperConfig : BasePluginConfig
     [JsonPropertyName("center_message")]
     public bool CenterMessage { get; set; } = true;
 
+    [JsonPropertyName("_help_afk_command")]
+    public string HelpAfk { get; set; } = "Let players type !afk to pause idle checks on themselves for afk_command_seconds. The timer starts from zero when it ends.";
+
+    [JsonPropertyName("afk_command_enabled")]
+    public bool AfkCommandEnabled { get; set; } = true;
+
+    [JsonPropertyName("afk_command_seconds")]
+    public int AfkCommandSeconds { get; set; } = 180;
+
+    [JsonPropertyName("_help_admins")]
+    public string HelpAdmins { get; set; } = "admin_immune skips anyone holding one of admin_roles. notify_admins tells those same people about idle warnings, moves, kicks, and !afk use.";
+
+    [JsonPropertyName("admin_immune")]
+    public bool AdminImmune { get; set; } = true;
+
+    [JsonPropertyName("admin_roles")]
+    public List<string> AdminRoles { get; set; } = ["@css/root", "@css/generic"];
+
+    [JsonPropertyName("notify_admins")]
+    public bool NotifyAdmins { get; set; } = true;
+
+    [JsonPropertyName("_help_announce_moves")]
+    public string HelpAnnounce { get; set; } = "Tell everyone in chat when a player gets moved to spectator.";
+
+    [JsonPropertyName("announce_moves")]
+    public bool AnnounceMoves { get; set; } = true;
+
     public void Sanitize()
     {
         NotifySeconds = Math.Max(1, NotifySeconds);
@@ -61,5 +88,7 @@ public sealed class IdleStopperConfig : BasePluginConfig
         Sound = (Sound ?? string.Empty).Trim();
         if (Sound.Length == 0) SoundEnabled = false;
         SoundIntervalSeconds = Math.Max(0, SoundIntervalSeconds);
+        AfkCommandSeconds = Math.Max(1, AfkCommandSeconds);
+        AdminRoles = (AdminRoles ?? []).Select(r => r.Trim()).Where(r => r.Length > 0).Distinct().ToList();
     }
 }

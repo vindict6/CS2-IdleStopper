@@ -24,7 +24,13 @@ Generated on first load at `addons/counterstrikesharp/configs/plugins/CS2-IdleSt
   "sound": "ui/panorama/popup_reveal_01",
   "sound_interval_seconds": 5,
   "shake_enabled": true,
-  "center_message": true
+  "center_message": true,
+  "afk_command_enabled": true,
+  "afk_command_seconds": 180,
+  "admin_immune": true,
+  "admin_roles": ["@css/root", "@css/generic"],
+  "notify_admins": true,
+  "announce_moves": true
 }
 ```
 
@@ -33,6 +39,15 @@ Generated on first load at `addons/counterstrikesharp/configs/plugins/CS2-IdleSt
 - `sound_interval_seconds`: repeat the sound every this many seconds while warned. `0` plays it once.
 - `shake_enabled`: screen shake every two seconds during the warning. No damage and the player does not move.
 - `center_message`: `true` shows the live countdown in the middle of the screen. `false` sends a single purple chat message at notify time instead, telling them what happens and how many seconds they have. It does not repeat. The file has short help lines next to each key too. Bad values get clamped, and `action_seconds` is always forced above `notify_seconds`.
+
+- `afk_command_enabled` / `afk_command_seconds`: players can type `!afk` to pause checks on themselves. When the time is up their idle counter starts over from zero.
+- `admin_immune` / `admin_roles`: anyone with one of these CounterStrikeSharp flags is never counted.
+- `notify_admins`: those same admins get a chat line when someone hits the warning, gets moved or kicked, or uses `!afk`. Only the start of a warning, not every second.
+- `announce_moves`: tell the whole server when someone is moved to spectator.
+
+## Commands
+
+`!afk` (or `css_afk` in console) pauses idle checks on yourself for the configured time.
 
 ## Install
 
