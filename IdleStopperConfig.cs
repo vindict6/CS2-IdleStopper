@@ -9,7 +9,7 @@ public sealed class IdleStopperConfig : BasePluginConfig
 
     // JSON has no comments, so the help lives in the file as plain keys.
     [JsonPropertyName("_help_notify_seconds")]
-    public string HelpNotify { get; set; } = "Seconds of no input before the player gets the warning, sound, and slaps.";
+    public string HelpNotify { get; set; } = "Seconds of no input before the player gets the warning, sound, and screen shake.";
 
     [JsonPropertyName("notify_seconds")]
     public int NotifySeconds { get; set; } = 30;
@@ -35,11 +35,11 @@ public sealed class IdleStopperConfig : BasePluginConfig
     [JsonPropertyName("sound")]
     public string Sound { get; set; } = "ui/panorama/popup_reveal_01";
 
-    [JsonPropertyName("_help_slap")]
-    public string HelpSlap { get; set; } = "Shove the player (no damage) every two seconds while they are warned.";
+    [JsonPropertyName("_help_shake")]
+    public string HelpShake { get; set; } = "Shake the player's screen every two seconds while they are warned. No damage, no movement.";
 
-    [JsonPropertyName("slap_enabled")]
-    public bool SlapEnabled { get; set; } = true;
+    [JsonPropertyName("shake_enabled")]
+    public bool ShakeEnabled { get; set; } = true;
 
     [JsonPropertyName("_help_center_message")]
     public string HelpCenter { get; set; } = "true = countdown in the middle of the screen. false = one purple chat message at notify time instead.";
