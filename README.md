@@ -4,7 +4,7 @@ A small CounterStrikeSharp plugin that deals with people who go AFK. Nothing fan
 
 ## What it does
 
-- Counts seconds a living T/CT player goes without pressing anything.
+- Counts seconds a living T/CT player goes without pressing anything or moving their aim. Input is checked every frame, so a quick tap or a small mouse nudge is enough to clear it.
 - At `notify_seconds` (default 45) it plays a popup sound, shakes their screen, and puts a countdown in the middle of their screen.
 - At `action_seconds` (default 75) it either moves them to spectator, kicks them, or does nothing, depending on `action_type`.
 - Warmup is skipped completely. Spectators, dead players, and bots are never counted.

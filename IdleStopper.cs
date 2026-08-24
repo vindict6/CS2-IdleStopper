@@ -16,9 +16,13 @@ namespace IdleStopper;
 public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
 {
     public override string ModuleName => "CS2-IdleStopper";
-    public override string ModuleVersion => "1.6.0";
+    public override string ModuleVersion => "1.7.0";
     public override string ModuleAuthor => "BONE";
     public override string ModuleDescription => "Warns, shakes, then moves or kicks players who stop pressing keys.";
+
+    // Degrees of aim movement in one frame that counts as "they're at the keyboard".
+    // Small on purpose: a nudge of the mouse should clear the warning.
+    private const float AimTolerance = 0.35f;
 
     public IdleStopperConfig Config { get; set; } = new();
 
@@ -33,6 +37,12 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
     private readonly HashSet<int> _movedThisRound = new();
     // Slot -> rounds sat in spectator after the plugin put them there.
     private readonly Dictionary<int, int> _specRounds = new();
+    // Slots worth sampling every frame, rebuilt once a second by the timer.
+    private readonly List<int> _watch = new();
+    // Slots that did something since the last second. Filled every frame.
+    private readonly HashSet<int> _active = new();
+    // Last aim angles per slot, so mouse movement counts as being there.
+    private readonly Dictionary<int, (float Pitch, float Yaw)> _aim = new();
     private Timer? _tick;
     private CCSGameRules? _rules;
 
@@ -48,7 +58,8 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         RegisterListener<Listeners.OnMapEnd>(ClearAll);
         RegisterListener<Listeners.OnClientDisconnect>(slot =>
         {
-            _idle.Remove(slot); _center.Remove(slot); _afk.Remove(slot); _movedThisRound.Remove(slot); _specRounds.Remove(slot);
+            _idle.Remove(slot); _center.Remove(slot); _afk.Remove(slot); _movedThisRound.Remove(slot);
+            _specRounds.Remove(slot); _watch.Remove(slot); _active.Remove(slot); _aim.Remove(slot);
         });
         RegisterEventHandler<EventRoundStart>((_, _) => { OnRoundStart(); return HookResult.Continue; });
         RegisterListener<Listeners.OnTick>(OnTick);
@@ -76,6 +87,9 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         _afk.Clear();
         _movedThisRound.Clear();
         _specRounds.Clear();
+        _watch.Clear();
+        _active.Clear();
+        _aim.Clear();
     }
 
     private void OnRoundStart()
@@ -126,10 +140,36 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         NotifyAdmins($"{player.PlayerName} used !afk ({Config.AfkCommandSeconds}s).");
     }
 
+    // Buttons are only held for a few frames, so a once-a-second look misses taps.
+    // Sample every frame instead, and treat aim movement as input too.
     private void OnTick()
     {
-        if (_center.Count == 0)
-            return;
+        foreach (var slot in _watch)
+        {
+            if (_active.Contains(slot))
+                continue;
+
+            var player = Utilities.GetPlayerFromSlot(slot);
+            if (player is null || !player.IsValid)
+                continue;
+
+            if (player.Buttons != 0)
+            {
+                _active.Add(slot);
+                continue;
+            }
+
+            var pawn = player.PlayerPawn.Value;
+            var eyes = pawn is not null && pawn.IsValid ? pawn.EyeAngles : null;
+            if (eyes is null)
+                continue;
+
+            var aim = (eyes.X, eyes.Y);
+            if (_aim.TryGetValue(slot, out var last) && Moved(last, aim))
+                _active.Add(slot);
+
+            _aim[slot] = aim;
+        }
 
         foreach (var (slot, html) in _center)
         {
@@ -139,14 +179,30 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         }
     }
 
+    private static bool Moved((float Pitch, float Yaw) a, (float Pitch, float Yaw) b)
+    {
+        return Math.Abs(Wrap(a.Pitch - b.Pitch)) + Math.Abs(Wrap(a.Yaw - b.Yaw)) > AimTolerance;
+    }
+
+    private static float Wrap(float degrees)
+    {
+        while (degrees > 180.0f) degrees -= 360.0f;
+        while (degrees < -180.0f) degrees += 360.0f;
+        return degrees;
+    }
+
     private void Tick()
     {
         if (InWarmup())
         {
             if (_idle.Count > 0) _idle.Clear();
             _center.Clear();
+            _watch.Clear();
+            _active.Clear();
             return;
         }
+
+        _watch.Clear();
 
         // Count down !afk grace. When it runs out the player starts from a clean slate.
         foreach (var slot in _afk.Keys.ToList())
@@ -181,7 +237,10 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
                 continue;
             }
 
-            if (player.Buttons != 0)
+            // Sampled by OnTick all through the last second.
+            _watch.Add(slot);
+
+            if (_active.Contains(slot))
             {
                 _movedThisRound.Add(slot);
                 Reset(slot);
@@ -237,6 +296,8 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
                     $"<font color='#ffcc00'><b>{left}</b></font>" +
                     (Config.AfkCommandEnabled ? $"<br><font color='#aaaaaa'>Type !afk to become immune for {Pretty(Config.AfkCommandSeconds)}</font>" : "");
         }
+
+        _active.Clear();
     }
 
     private void Punish(CCSPlayerController player)
