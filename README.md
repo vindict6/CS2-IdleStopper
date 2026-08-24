@@ -20,6 +20,8 @@ Generated on first load at `addons/counterstrikesharp/configs/plugins/CS2-IdleSt
   "notify_seconds": 30,
   "action_seconds": 60,
   "action_type": 1,
+  "round_start_only": false,
+  "spectator_kick_rounds": 0,
   "sound_enabled": true,
   "sound": "ui/panorama/popup_reveal_01",
   "sound_interval_seconds": 5,
@@ -35,6 +37,8 @@ Generated on first load at `addons/counterstrikesharp/configs/plugins/CS2-IdleSt
 ```
 
 - `action_type`: `0` warning only (timer just restarts), `1` move to spectator, `2` kick.
+- `round_start_only`: only count from the start of a round. As soon as a player presses anything that round they are ignored until the next one, so holding an angle for a while does not trigger it.
+- `spectator_kick_rounds`: if the plugin moved someone to spectator and they just sit there, kick them after this many round starts. `0` turns it off. Picking a team again stops the count.
 - `sound`: any client-side sound path, played when the warning starts. Empty string or `sound_enabled: false` turns it off.
 - `sound_interval_seconds`: repeat the sound every this many seconds while warned. `0` plays it once.
 - `shake_enabled`: screen shake every two seconds during the warning. No damage and the player does not move.
@@ -47,7 +51,7 @@ Generated on first load at `addons/counterstrikesharp/configs/plugins/CS2-IdleSt
 
 ## Commands
 
-`!afk` (or `css_afk` in console) pauses idle checks on yourself for the configured time.
+`!afk` (or `css_afk` in console) pauses idle checks on yourself for the configured time. The warning message mentions it when the command is enabled.
 
 ## Install
 

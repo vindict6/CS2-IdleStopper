@@ -16,7 +16,7 @@ namespace IdleStopper;
 public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
 {
     public override string ModuleName => "CS2-IdleStopper";
-    public override string ModuleVersion => "1.4.0";
+    public override string ModuleVersion => "1.5.0";
     public override string ModuleAuthor => "BONE";
     public override string ModuleDescription => "Warns, shakes, then moves or kicks players who stop pressing keys.";
 
@@ -29,6 +29,10 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
     private readonly Dictionary<int, string> _center = new();
     // Slot -> seconds of !afk grace left.
     private readonly Dictionary<int, int> _afk = new();
+    // Slots that pressed something this round. Only used with round_start_only.
+    private readonly HashSet<int> _movedThisRound = new();
+    // Slot -> rounds sat in spectator after the plugin put them there.
+    private readonly Dictionary<int, int> _specRounds = new();
     private Timer? _tick;
     private CCSGameRules? _rules;
 
@@ -42,7 +46,11 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
     {
         RegisterListener<Listeners.OnMapStart>(_ => ClearAll());
         RegisterListener<Listeners.OnMapEnd>(ClearAll);
-        RegisterListener<Listeners.OnClientDisconnect>(slot => { _idle.Remove(slot); _center.Remove(slot); _afk.Remove(slot); });
+        RegisterListener<Listeners.OnClientDisconnect>(slot =>
+        {
+            _idle.Remove(slot); _center.Remove(slot); _afk.Remove(slot); _movedThisRound.Remove(slot); _specRounds.Remove(slot);
+        });
+        RegisterEventHandler<EventRoundStart>((_, _) => { OnRoundStart(); return HookResult.Continue; });
         RegisterListener<Listeners.OnTick>(OnTick);
         RegisterListener<Listeners.OnClientPutInServer>(slot => _idle[slot] = 0);
         RegisterEventHandler<EventPlayerSpawn>((e, _) => { ClearWarning(e.Userid); return HookResult.Continue; });
@@ -66,6 +74,37 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         _idle.Clear();
         _center.Clear();
         _afk.Clear();
+        _movedThisRound.Clear();
+        _specRounds.Clear();
+    }
+
+    private void OnRoundStart()
+    {
+        _movedThisRound.Clear();
+
+        if (Config.SpectatorKickRounds <= 0)
+        {
+            _specRounds.Clear();
+            return;
+        }
+
+        foreach (var slot in _specRounds.Keys.ToList())
+        {
+            var player = Utilities.GetPlayerFromSlot(slot);
+            if (player is null || !player.IsValid || player.Team != CsTeam.Spectator)
+            {
+                // Gone, or picked a team again. Either way stop counting.
+                _specRounds.Remove(slot);
+                continue;
+            }
+
+            if (++_specRounds[slot] < Config.SpectatorKickRounds)
+                continue;
+
+            _specRounds.Remove(slot);
+            NotifyAdmins($"{player.PlayerName} was kicked after {Config.SpectatorKickRounds} rounds idle in spectator.");
+            player.Disconnect(NetworkDisconnectionReason.NETWORK_DISCONNECT_KICKED_IDLE);
+        }
     }
 
     [ConsoleCommand("css_afk", "Pause idle checks on yourself for a while.")]
@@ -144,6 +183,14 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
 
             if (player.Buttons != 0)
             {
+                _movedThisRound.Add(slot);
+                Reset(slot);
+                continue;
+            }
+
+            // Round start only: once they've done anything this round, leave them alone.
+            if (Config.RoundStartOnly && _movedThisRound.Contains(slot))
+            {
                 Reset(slot);
                 continue;
             }
@@ -172,7 +219,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
             {
                 // Chat mode only says it once, so the seconds here are the full countdown.
                 if (!Config.CenterMessage)
-                    player.PrintToChat($" {ChatColors.Purple}[IdleStopper] You are idle. You will be {Outcome()} in {left} seconds.");
+                    player.PrintToChat($" {ChatColors.Purple}[IdleStopper] You are idle. You will be {Outcome()} in {left} seconds.{AfkHint()}");
 
                 NotifyAdmins($"{player.PlayerName} is idle, {Outcome()} in {left}s.");
             }
@@ -184,7 +231,8 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
                 _center[slot] =
                     $"<font color='#ff4444'><b>YOU ARE IDLE</b></font><br>" +
                     $"<font color='#ffffff'>Press any key or you will be {Outcome()} in</font> " +
-                    $"<font color='#ffcc00'><b>{left}</b></font>";
+                    $"<font color='#ffcc00'><b>{left}</b></font>" +
+                    (Config.AfkCommandEnabled ? $"<br><font color='#aaaaaa'>Type !afk to become immune for {Pretty(Config.AfkCommandSeconds)}</font>" : "");
         }
     }
 
@@ -196,6 +244,8 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
             case 1:
                 player.PrintToChat($" {ChatColors.Red}[IdleStopper]{ChatColors.Default} You were moved to spectator for being idle.");
                 player.ChangeTeam(CsTeam.Spectator);
+                if (Config.SpectatorKickRounds > 0)
+                    _specRounds[player.Slot] = 0;
                 if (Config.AnnounceMoves)
                     Server.PrintToChatAll($" {ChatColors.Purple}[IdleStopper]{ChatColors.Default} {name} was moved to spectator for being idle.");
                 NotifyAdmins($"{name} was moved to spectator for being idle.");
@@ -257,6 +307,21 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
     {
         if (player is not null && player.IsValid)
             Reset(player.Slot);
+    }
+
+    private string AfkHint() =>
+        Config.AfkCommandEnabled ? $" Type !afk to become immune for {Pretty(Config.AfkCommandSeconds)}." : "";
+
+    // 50 seconds / 1 minute / 2 minutes & 14 seconds
+    private static string Pretty(int total)
+    {
+        var m = total / 60;
+        var sec = total % 60;
+        var mins = m == 0 ? "" : m == 1 ? "1 minute" : $"{m} minutes";
+        var secs = sec == 0 ? "" : sec == 1 ? "1 second" : $"{sec} seconds";
+        if (mins.Length == 0) return secs;
+        if (secs.Length == 0) return mins;
+        return $"{mins} & {secs}";
     }
 
     private string Outcome() => Config.ActionType switch

@@ -26,6 +26,18 @@ public sealed class IdleStopperConfig : BasePluginConfig
     [JsonPropertyName("action_type")]
     public int ActionType { get; set; } = 1;
 
+    [JsonPropertyName("_help_round_start_only")]
+    public string HelpRoundStart { get; set; } = "true = only catch players who never press a key from round start. Someone holding an angle mid-round is left alone.";
+
+    [JsonPropertyName("round_start_only")]
+    public bool RoundStartOnly { get; set; } = false;
+
+    [JsonPropertyName("_help_spectator_kick_rounds")]
+    public string HelpSpecKick { get; set; } = "Kick a player the plugin moved to spectator once they have sat there this many rounds. 0 = never.";
+
+    [JsonPropertyName("spectator_kick_rounds")]
+    public int SpectatorKickRounds { get; set; } = 0;
+
     [JsonPropertyName("_help_sound")]
     public string HelpSound { get; set; } = "Play a sound when the warning starts. sound is any client-side sound path.";
 
@@ -89,6 +101,7 @@ public sealed class IdleStopperConfig : BasePluginConfig
         if (Sound.Length == 0) SoundEnabled = false;
         SoundIntervalSeconds = Math.Max(0, SoundIntervalSeconds);
         AfkCommandSeconds = Math.Max(1, AfkCommandSeconds);
+        SpectatorKickRounds = Math.Max(0, SpectatorKickRounds);
         AdminRoles = (AdminRoles ?? []).Select(r => r.Trim()).Where(r => r.Length > 0).Distinct().ToList();
     }
 }
