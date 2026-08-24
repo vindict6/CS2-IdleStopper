@@ -35,6 +35,12 @@ public sealed class IdleStopperConfig : BasePluginConfig
     [JsonPropertyName("sound")]
     public string Sound { get; set; } = "ui/panorama/popup_reveal_01";
 
+    [JsonPropertyName("_help_sound_interval")]
+    public string HelpSoundInterval { get; set; } = "Seconds between repeats of the sound during the warning. 0 = play it once only.";
+
+    [JsonPropertyName("sound_interval_seconds")]
+    public int SoundIntervalSeconds { get; set; } = 5;
+
     [JsonPropertyName("_help_shake")]
     public string HelpShake { get; set; } = "Shake the player's screen every two seconds while they are warned. No damage, no movement.";
 
@@ -54,5 +60,6 @@ public sealed class IdleStopperConfig : BasePluginConfig
         ActionType = Math.Clamp(ActionType, 0, 2);
         Sound = (Sound ?? string.Empty).Trim();
         if (Sound.Length == 0) SoundEnabled = false;
+        SoundIntervalSeconds = Math.Max(0, SoundIntervalSeconds);
     }
 }

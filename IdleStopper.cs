@@ -2,6 +2,7 @@ using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Modules.Timers;
+using CounterStrikeSharp.API.Modules.UserMessages;
 using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.ValveConstants.Protobuf;
 using Timer = CounterStrikeSharp.API.Modules.Timers.Timer;
@@ -12,7 +13,7 @@ namespace IdleStopper;
 public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
 {
     public override string ModuleName => "CS2-IdleStopper";
-    public override string ModuleVersion => "1.2.0";
+    public override string ModuleVersion => "1.3.0";
     public override string ModuleAuthor => "BONE";
     public override string ModuleDescription => "Warns, shakes, then moves or kicks players who stop pressing keys.";
 
@@ -114,17 +115,20 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
 
             var left = Config.ActionSeconds - idle;
 
-            if (idle == Config.NotifySeconds)
+            var sinceNotify = idle - Config.NotifySeconds;
+
+            if (Config.SoundEnabled && (sinceNotify == 0 || (Config.SoundIntervalSeconds > 0 && sinceNotify % Config.SoundIntervalSeconds == 0)))
+                player.ExecuteClientCommand("play " + Config.Sound);
+
+            if (sinceNotify == 0)
             {
-                if (Config.SoundEnabled)
-                    player.ExecuteClientCommand("play " + Config.Sound);
 
                 // Chat mode only says it once, so the seconds here are the full countdown.
                 if (!Config.CenterMessage)
                     player.PrintToChat($" {ChatColors.Purple}[IdleStopper] You are idle. You will be {Outcome()} in {left} seconds.");
             }
 
-            if (Config.ShakeEnabled && (idle - Config.NotifySeconds) % 2 == 0)
+            if (Config.ShakeEnabled && sinceNotify % 2 == 0)
                 Shake(player);
 
             if (Config.CenterMessage)
@@ -155,27 +159,16 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         _center.Remove(slot);
     }
 
-    // Screen shake only, no push. Tiny radius sat on the player so nobody else feels it.
-    private void Shake(CCSPlayerController player)
+    // Sent straight to the one client, so nobody nearby feels it and no entity is spawned.
+    private static void Shake(CCSPlayerController player)
     {
-        var pawn = player.PlayerPawn.Value;
-        if (pawn is null || !pawn.IsValid || pawn.AbsOrigin is null)
-            return;
-
-        var shake = Utilities.CreateEntityByName<CEnvShake>("env_shake");
-        if (shake is null)
-            return;
-
-        shake.Amplitude = 10f;
-        shake.Frequency = 100f;
-        shake.Duration = 1f;
-        shake.Radius = 1f;
-        shake.DispatchSpawn();
-        shake.Teleport(pawn.AbsOrigin, null, null);
-        shake.AcceptInput("StartShake");
-
-        // Give the shake time to run, then clean up.
-        AddTimer(1.5f, () => { if (shake.IsValid) shake.Remove(); });
+        var msg = UserMessage.FromPartialName("Shake");
+        msg.SetUInt("command", 0);
+        msg.SetFloat("local_amplitude", 8f);
+        msg.SetFloat("frequency", 40f);
+        msg.SetFloat("duration", 1f);
+        msg.Recipients.Add(player);
+        msg.Send();
     }
 
     private bool InWarmup()
