@@ -23,9 +23,12 @@ jobs:
 
       - name: Package
         run: |
-          mkdir -p out/CS2-IdleStopper
-          cp bin/Release/net8.0/CS2-IdleStopper.dll out/CS2-IdleStopper/
-          cd out && zip -r ../CS2-IdleStopper.zip CS2-IdleStopper
+          PLUGIN=out/addons/counterstrikesharp/plugins/CS2-IdleStopper
+          CONFIG=out/addons/counterstrikesharp/configs/plugins/CS2-IdleStopper
+          mkdir -p "$PLUGIN" "$CONFIG"
+          cp bin/Release/net8.0/CS2-IdleStopper.dll "$PLUGIN/"
+          cp configs/CS2-IdleStopper.example.json "$CONFIG/"
+          cd out && zip -r ../CS2-IdleStopper.zip addons
 
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')

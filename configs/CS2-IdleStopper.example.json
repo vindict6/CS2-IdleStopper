@@ -1,0 +1,63 @@
+{
+  // CS2-IdleStopper
+  // Everything here is in seconds unless it says otherwise.
+  // Warmup is always skipped, and bots and spectators are never counted.
+
+  // How long a player can go without touching a key before they get warned.
+  "notify_seconds": 45,
+
+  // How long before something actually happens to them.
+  // Has to be bigger than notify_seconds. The gap between the two is the countdown they see.
+  "action_seconds": 75,
+
+  // What happens at action_seconds:
+  //   0 = nothing, just warn them and start over
+  //   1 = move to spectator
+  //   2 = kick
+  "action_type": 1,
+
+  // Only watch players who do nothing at all from the round start.
+  // Turn this on if people camping an angle for a while keep getting flagged.
+  "round_start_only": false,
+
+  // If the plugin moved someone to spectator and they just sit there, kick them after
+  // this many rounds. Set it to 0 if you never want that. Joining a team stops the count.
+  "spectator_kick_rounds": 3,
+
+  // Sound played at the warning. Any client side sound path works.
+  "sound_enabled": true,
+  "sound": "ui/panorama/popup_reveal_01",
+
+  // How often the sound and the screen shake repeat while they're being warned.
+  // 0 means it only happens once, right at the start.
+  "sound_interval_seconds": 5,
+
+  // Rattles their screen for a second on the same beat as the sound.
+  // No damage, and it doesn't push them anywhere.
+  "shake_enabled": true,
+
+  // true  = live countdown in the middle of their screen
+  // false = one purple chat message when the warning starts, and nothing after
+  "center_message": true,
+
+  // Lets anyone type !afk to pause the checks on themselves.
+  // When their time is up the idle counter starts over from zero.
+  "afk_command_enabled": true,
+  "afk_command_seconds": 180,
+
+  // Skip anyone holding one of the flags below.
+  "admin_immune": true,
+  "admin_roles": [
+    "@css/root",
+    "@css/generic"
+  ],
+
+  // Send those same admins a chat line when someone gets warned, moved, kicked,
+  // or uses !afk. Just the once per player, not every second.
+  "notify_admins": true,
+
+  // Tell the whole server when a player gets moved to spectator.
+  "announce_moves": true,
+
+  "ConfigVersion": 1
+}

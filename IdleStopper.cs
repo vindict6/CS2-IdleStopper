@@ -16,7 +16,7 @@ namespace IdleStopper;
 public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
 {
     public override string ModuleName => "CS2-IdleStopper";
-    public override string ModuleVersion => "1.5.1";
+    public override string ModuleVersion => "1.6.0";
     public override string ModuleAuthor => "BONE";
     public override string ModuleDescription => "Warns, shakes, then moves or kicks players who stop pressing keys.";
 

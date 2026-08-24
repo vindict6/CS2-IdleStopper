@@ -3,43 +3,26 @@ using CounterStrikeSharp.API.Core;
 
 namespace IdleStopper;
 
+// The shipped example config carries the comments. CounterStrikeSharp reads JSON with
+// comments enabled, so they stay in the file once it's copied.
 public sealed class IdleStopperConfig : BasePluginConfig
 {
     public override int Version { get; set; } = 1;
 
-    // JSON has no comments, so the help lives in the file as plain keys.
-    [JsonPropertyName("_help_notify_seconds")]
-    public string HelpNotify { get; set; } = "Seconds of no input before the player gets the warning, sound, and screen shake.";
-
     [JsonPropertyName("notify_seconds")]
-    public int NotifySeconds { get; set; } = 30;
-
-    [JsonPropertyName("_help_action_seconds")]
-    public string HelpAction { get; set; } = "Seconds of no input before the action fires. Must be higher than notify_seconds.";
+    public int NotifySeconds { get; set; } = 45;
 
     [JsonPropertyName("action_seconds")]
-    public int ActionSeconds { get; set; } = 60;
-
-    [JsonPropertyName("_help_action_type")]
-    public string HelpType { get; set; } = "0 = do nothing (warning only, timer restarts), 1 = move to spectator, 2 = kick.";
+    public int ActionSeconds { get; set; } = 75;
 
     [JsonPropertyName("action_type")]
     public int ActionType { get; set; } = 1;
 
-    [JsonPropertyName("_help_round_start_only")]
-    public string HelpRoundStart { get; set; } = "true = only catch players who never press a key from round start. Someone holding an angle mid-round is left alone.";
-
     [JsonPropertyName("round_start_only")]
     public bool RoundStartOnly { get; set; } = false;
 
-    [JsonPropertyName("_help_spectator_kick_rounds")]
-    public string HelpSpecKick { get; set; } = "Kick a player the plugin moved to spectator once they have sat there this many rounds. 0 = never.";
-
     [JsonPropertyName("spectator_kick_rounds")]
-    public int SpectatorKickRounds { get; set; } = 0;
-
-    [JsonPropertyName("_help_sound")]
-    public string HelpSound { get; set; } = "Play a sound when the warning starts. sound is any client-side sound path.";
+    public int SpectatorKickRounds { get; set; } = 3;
 
     [JsonPropertyName("sound_enabled")]
     public bool SoundEnabled { get; set; } = true;
@@ -47,35 +30,20 @@ public sealed class IdleStopperConfig : BasePluginConfig
     [JsonPropertyName("sound")]
     public string Sound { get; set; } = "ui/panorama/popup_reveal_01";
 
-    [JsonPropertyName("_help_sound_interval")]
-    public string HelpSoundInterval { get; set; } = "Seconds between repeats of the sound and shake during the warning. 0 = once only.";
-
     [JsonPropertyName("sound_interval_seconds")]
     public int SoundIntervalSeconds { get; set; } = 5;
-
-    [JsonPropertyName("_help_shake")]
-    public string HelpShake { get; set; } = "Shake the player's screen for a second whenever the sound plays (same interval). No damage, no movement.";
 
     [JsonPropertyName("shake_enabled")]
     public bool ShakeEnabled { get; set; } = true;
 
-    [JsonPropertyName("_help_center_message")]
-    public string HelpCenter { get; set; } = "true = countdown in the middle of the screen. false = one purple chat message at notify time instead.";
-
     [JsonPropertyName("center_message")]
     public bool CenterMessage { get; set; } = true;
-
-    [JsonPropertyName("_help_afk_command")]
-    public string HelpAfk { get; set; } = "Let players type !afk to pause idle checks on themselves for afk_command_seconds. The timer starts from zero when it ends.";
 
     [JsonPropertyName("afk_command_enabled")]
     public bool AfkCommandEnabled { get; set; } = true;
 
     [JsonPropertyName("afk_command_seconds")]
     public int AfkCommandSeconds { get; set; } = 180;
-
-    [JsonPropertyName("_help_admins")]
-    public string HelpAdmins { get; set; } = "admin_immune skips anyone holding one of admin_roles. notify_admins tells those same people about idle warnings, moves, kicks, and !afk use.";
 
     [JsonPropertyName("admin_immune")]
     public bool AdminImmune { get; set; } = true;
@@ -85,9 +53,6 @@ public sealed class IdleStopperConfig : BasePluginConfig
 
     [JsonPropertyName("notify_admins")]
     public bool NotifyAdmins { get; set; } = true;
-
-    [JsonPropertyName("_help_announce_moves")]
-    public string HelpAnnounce { get; set; } = "Tell everyone in chat when a player gets moved to spectator.";
 
     [JsonPropertyName("announce_moves")]
     public bool AnnounceMoves { get; set; } = true;
