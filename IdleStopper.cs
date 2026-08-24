@@ -94,17 +94,26 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
                 continue;
             }
 
-            if (idle == Config.NotifySeconds)
-                player.ExecuteClientCommand(WarnSound);
+            var left = Config.ActionSeconds - idle;
 
-            if ((idle - Config.NotifySeconds) % 2 == 0)
+            if (idle == Config.NotifySeconds)
+            {
+                if (Config.SoundEnabled)
+                    player.ExecuteClientCommand("play " + Config.Sound);
+
+                // Chat mode only says it once, so the seconds here are the full countdown.
+                if (!Config.CenterMessage)
+                    player.PrintToChat($" {ChatColors.Purple}[IdleStopper] You are idle. You will be {Outcome()} in {left} seconds.");
+            }
+
+            if (Config.SlapEnabled && (idle - Config.NotifySeconds) % 2 == 0)
                 Slap(player);
 
-            var left = Config.ActionSeconds - idle;
-            player.PrintToCenterHtml(
-                $"<font color='#ff4444'><b>YOU ARE IDLE</b></font><br>" +
-                $"<font color='#ffffff'>Press any key or you will be {ActionName()} in</font> " +
-                $"<font color='#ffcc00'><b>{left}</b></font>", 1);
+            if (Config.CenterMessage)
+                player.PrintToCenterHtml(
+                    $"<font color='#ff4444'><b>YOU ARE IDLE</b></font><br>" +
+                    $"<font color='#ffffff'>Press any key or you will be {Outcome()} in</font> " +
+                    $"<font color='#ffcc00'><b>{left}</b></font>", 1);
         }
     }
 
@@ -136,13 +145,6 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         pawn.Teleport(null, null, vel);
     }
 
-    private string Outcome() => Config.ActionType switch
-    {
-        1 => "moved to spectator",
-        2 => "kicked",
-        _ => "warned again"
-    };
-
     private bool InWarmup()
     {
         if (_rules is null)
@@ -157,10 +159,10 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
             _idle[player.Slot] = 0;
     }
 
-    private string ActionName() => Config.ActionType switch
+    private string Outcome() => Config.ActionType switch
     {
         1 => "moved to spectator",
         2 => "kicked",
-        _ => "reset"
+        _ => "warned again"
     };
 }
