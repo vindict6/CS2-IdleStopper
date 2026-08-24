@@ -4,7 +4,7 @@ A small CounterStrikeSharp plugin that deals with people who go AFK. Nothing fan
 
 ## What it does
 
-- Counts seconds a living T/CT player goes without pressing anything or moving their aim. Input is checked every frame, so a quick tap or a small mouse nudge is enough to clear it.
+- Counts seconds a living T/CT player goes without pressing anything. Keys are checked every frame, so even a quick tap clears it.
 - At `notify_seconds` (default 45) it plays a popup sound, shakes their screen, and puts a countdown in the middle of their screen.
 - At `action_seconds` (default 75) it either moves them to spectator, kicks them, or does nothing, depending on `action_type`.
 - Warmup is skipped completely. Spectators, dead players, and bots are never counted.
@@ -46,7 +46,7 @@ The zip ships a commented `CS2-IdleStopper.example.json`. CounterStrikeSharp cop
 - `center_message`: `true` shows the live countdown in the middle of the screen. `false` sends a single purple chat message at notify time instead, telling them what happens and how many seconds they have. It does not repeat. The file has short help lines next to each key too. Bad values get clamped, and `action_seconds` is always forced above `notify_seconds`.
 
 - `afk_command_enabled` / `afk_command_seconds`: players can type `!afk` to pause checks on themselves. When the time is up their idle counter starts over from zero.
-- `keep_loadout`: saves money and guns (with skins) when the plugin moves or kicks someone, and gives it back when they rejoin or reconnect. Only within the same match, and it never says anything in chat.
+- `keep_loadout`: saves money and guns (with skins) when the plugin moves or kicks someone, and gives it back when they rejoin or reconnect. Same match only, and only if they come back on the same team. Switch sides and you spawn like normal. It never says anything in chat.
 - `admin_immune` / `admin_roles`: anyone with one of these CounterStrikeSharp flags is never counted.
 - `notify_admins`: those same admins get a chat line when someone hits the warning, gets moved or kicked, or uses `!afk`. Only the start of a warning, not every second.
 - `announce_moves`: tell the whole server when someone is moved to spectator.
