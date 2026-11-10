@@ -39,7 +39,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
     private readonly List<int> _watch = new();
     // Slots that did something since the last second. Filled every frame.
     private readonly HashSet<int> _active = new();
-    // SteamID -> what they had when we took them out. Dropped when the match ends.
+    // SteamID -> loadout saved when the player was moved or kicked. Cleared when the match ends.
     private readonly Dictionary<ulong, Loadout> _saved = new();
     private Timer? _tick;
     private CCSGameRules? _rules;
@@ -64,7 +64,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         RegisterEventHandler<EventPlayerDeath>((e, _) => { ClearWarning(e.Userid); return HookResult.Continue; });
         RegisterEventHandler<EventCsWinPanelMatch>((_, _) => { _saved.Clear(); return HookResult.Continue; });
 
-        // Chat commands normally get echoed to everyone first. Swallow ours instead.
+        // Handle !afk before the chat message is broadcast, so it isn't echoed to everyone.
         AddCommandListener("say", OnSay, HookMode.Pre);
         AddCommandListener("say_team", OnSay, HookMode.Pre);
         RegisterListener<Listeners.OnTick>(OnTick);
@@ -72,7 +72,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         RegisterEventHandler<EventPlayerSpawn>((e, _) => { ClearWarning(e.Userid); RestoreLater(e.Userid); return HookResult.Continue; });
         RegisterEventHandler<EventPlayerTeam>((e, _) => { ClearWarning(e.Userid); return HookResult.Continue; });
 
-        // Hot reload keeps whoever is already on the server, so start them fresh.
+        // On hot reload players are already connected, so start everyone with clean state.
         ClearAll();
         _tick = AddTimer(1.0f, Tick, TimerFlags.REPEAT);
     }
@@ -84,7 +84,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         ClearAll();
     }
 
-    // Pick up edits to the json without a restart. Bad file = keep what we had.
+    // Re-read the config file on map start. If it fails to load, keep the current settings.
     private void ReloadConfig()
     {
         try
@@ -127,7 +127,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         return HookResult.Handled;
     }
 
-    // Idle time never carries over. Every round is a clean start for everyone.
+    // Clear idle counters and pending warnings so idle time never carries into the next round.
     private void ResetIntervals()
     {
         _idle.Clear();
@@ -152,7 +152,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
             var player = Utilities.GetPlayerFromSlot(slot);
             if (player is null || !player.IsValid || player.Team != CsTeam.Spectator)
             {
-                // Gone, or picked a team again. Either way stop counting.
+                // Player left or joined a team, so stop counting.
                 _specRounds.Remove(slot);
                 continue;
             }
@@ -190,8 +190,8 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         NotifyAdmins($"{player.PlayerName} used !afk ({Config.AfkCommandSeconds}s).");
     }
 
-    // Buttons are only held for a few frames, so a once-a-second look misses taps.
-    // Sample every frame instead.
+    // Buttons may only be held for a few frames, so a once-a-second check would miss taps.
+    // Sample input every frame and resend the center panel text.
     private void OnTick()
     {
         foreach (var slot in _watch)
@@ -222,7 +222,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
 
         _watch.Clear();
 
-        // Count down !afk grace. When it runs out the player starts from a clean slate.
+        // Count down !afk grace. When it expires the player's idle counter starts from zero.
         foreach (var slot in _afk.Keys.ToList())
         {
             if (--_afk[slot] > 0)
@@ -248,14 +248,14 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
                 continue;
             }
 
-            // Only count people who could actually be playing.
+            // Only count living players on T or CT.
             if (!player.PawnIsAlive || (player.Team != CsTeam.Terrorist && player.Team != CsTeam.CounterTerrorist))
             {
                 Reset(slot);
                 continue;
             }
 
-            // Sampled by OnTick all through the last second.
+            // OnTick samples this slot's input every frame until the next Tick.
             _watch.Add(slot);
 
             if (_active.Contains(slot))
@@ -265,7 +265,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
                 continue;
             }
 
-            // Round start only: once they've done anything this round, leave them alone.
+            // With round_start_only, skip players who have pressed anything this round.
             if (Config.RoundStartOnly && _movedThisRound.Contains(slot))
             {
                 Reset(slot);
@@ -300,7 +300,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
 
             if (sinceNotify == 0)
             {
-                // Chat mode only says it once, so the seconds here are the full countdown.
+                // The chat warning is sent once, so it reports the full countdown.
                 if (!Config.CenterMessage)
                     player.PrintToChat($" {ChatColors.Purple}[IdleStopper] You are idle. You will be {Outcome()} in {left} seconds.{AfkHint()}");
 
@@ -322,7 +322,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
     {
         var name = player.PlayerName;
 
-        // Grab this before the pawn goes away.
+        // Save the loadout while the pawn still exists.
         if (Config.KeepLoadout && Config.ActionType != 0)
             Save(player);
 
@@ -365,7 +365,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         }
         else
         {
-            // Stale handles show up in this list, so take them one at a time.
+            // The list can contain stale handles, so read each weapon in its own try block.
             for (var i = 0; i < weapons.Count; i++)
             {
                 try
@@ -378,8 +378,8 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
                     if (string.IsNullOrEmpty(name) || name == "weapon_c4")
                         continue;
 
-                    // Skin fields are off limits while CS# is following Valve's server guidelines.
-                    // Save the gun either way; the skin is a bonus.
+                    // Skin fields can't be read while CounterStrikeSharp follows Valve's server guidelines.
+                    // The weapon is saved either way; skin data is only added when allowed.
                     var gun = new Gun(name, 0, 0, 0, 0f, 0);
                     if (!CoreConfig.FollowCS2ServerGuidelines)
                     {
@@ -405,7 +405,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         _saved[key] = new Loadout(player.Team, player.InGameMoneyServices?.Account ?? 0, guns);
     }
 
-    // Spawn is too early to hand out weapons, so wait a beat and re-resolve the player.
+    // Spawn is too early to give weapons, so wait briefly and look the player up again by slot.
     private void RestoreLater(CCSPlayerController? player)
     {
         if (!Config.KeepLoadout || player is null || !player.IsValid || _saved.Count == 0)
@@ -429,7 +429,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         if (!_saved.TryGetValue(key, out var saved))
             return;
 
-        // One shot either way. If they came back on the other side they start over like normal.
+        // A saved loadout is used once. Players who return on the other team spawn normally.
         _saved.Remove(key);
 
         if (!player.PawnIsAlive || player.Team != saved.Team)
@@ -464,7 +464,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         if (weapon is null || !weapon.IsValid || CoreConfig.FollowCS2ServerGuidelines || (gun.PaintKit == 0 && gun.StatTrak == 0))
             return;
 
-        // Put the skin back on the fresh weapon.
+        // Apply the saved skin to the new weapon.
         weapon.FallbackPaintKit = gun.PaintKit;
         weapon.FallbackSeed = gun.Seed;
         weapon.FallbackWear = gun.Wear;
@@ -510,7 +510,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
         _center.Remove(slot);
     }
 
-    // Sent straight to the one client, so nobody nearby feels it and no entity is spawned.
+    // Sent only to this client, so nearby players aren't affected and no entity is spawned.
     private static void Shake(CCSPlayerController player)
     {
         var msg = UserMessage.FromPartialName("Shake");
@@ -539,7 +539,7 @@ public sealed class IdleStopper : BasePlugin, IPluginConfig<IdleStopperConfig>
     private string AfkHint() =>
         Config.AfkCommandEnabled ? $" Type !afk to become immune for {Pretty(Config.AfkCommandSeconds)}." : "";
 
-    // 50 seconds / 1 minute / 2 minutes & 14 seconds
+    // Formats seconds as text, e.g. "50 seconds", "1 minute", "2 minutes & 14 seconds".
     private static string Pretty(int total)
     {
         var m = total / 60;
